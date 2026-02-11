@@ -80,7 +80,7 @@ export declare class FlashPayClient {
     private config;
     constructor(config: FlashPayConfig);
     /**
-     * Get the private key in PEM format
+     * Get the private key in PEM format (PKCS#8)
      */
     private getPrivateKeyPem;
     /**
@@ -94,11 +94,11 @@ export declare class FlashPayClient {
      */
     private createDataForSignature;
     /**
-     * Generate RSA-SHA256 signature using Node.js crypto
+     * Generate RSA-SHA256 signature using Web Crypto API
      */
     private generateSignature;
     /**
-     * Verify RSA-SHA256 signature from FlashPay using Node.js crypto
+     * Verify RSA-SHA256 signature from FlashPay using Web Crypto API
      */
     private verifySignature;
     /**

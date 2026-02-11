@@ -1,5 +1,48 @@
 import { format as formatDate, addDays } from 'date-fns';
-import * as crypto from 'crypto';
+
+/**
+ * Convert a PEM-encoded key to an ArrayBuffer
+ */
+function pemToArrayBuffer(pem: string): ArrayBuffer {
+  const base64 = pem
+    .replace(/-----BEGIN.*-----/, '')
+    .replace(/-----END.*-----/, '')
+    .replace(/\s/g, '');
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+/**
+ * Import a PKCS#8 private key for signing
+ */
+async function importPrivateKey(pem: string): Promise<CryptoKey> {
+  const keyData = pemToArrayBuffer(pem);
+  return crypto.subtle.importKey(
+    'pkcs8',
+    keyData,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+}
+
+/**
+ * Import an SPKI public key for verification
+ */
+async function importPublicKey(pem: string): Promise<CryptoKey> {
+  const keyData = pemToArrayBuffer(pem);
+  return crypto.subtle.importKey(
+    'spki',
+    keyData,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['verify']
+  );
+}
 
 export interface FlashPayConfig {
   apiEndpoint: string; // e.g., 'https://pay-openapi.flashfin.com'
@@ -97,14 +140,14 @@ export class FlashPayClient {
   }
 
   /**
-   * Get the private key in PEM format
+   * Get the private key in PEM format (PKCS#8)
    */
   private getPrivateKeyPem(): string {
     const key = this.config.merchantPrivateKey;
     if (key.includes('-----BEGIN')) {
       return key;
     }
-    return `-----BEGIN RSA PRIVATE KEY-----\n${key}\n-----END RSA PRIVATE KEY-----`;
+    return `-----BEGIN PRIVATE KEY-----\n${key}\n-----END PRIVATE KEY-----`;
   }
 
   /**
@@ -151,28 +194,30 @@ export class FlashPayClient {
   }
 
   /**
-   * Generate RSA-SHA256 signature using Node.js crypto
+   * Generate RSA-SHA256 signature using Web Crypto API
    */
-  private generateSignature(payload: Record<string, unknown>): string {
+  private async generateSignature(payload: Record<string, unknown>): Promise<string> {
     const stringToSign = this.createDataForSignature(payload);
-    const privateKey = this.getPrivateKeyPem();
-    const sign = crypto.createSign('RSA-SHA256');
-    sign.update(stringToSign);
-    return sign.sign(privateKey, 'base64');
+    const privateKey = await importPrivateKey(this.getPrivateKeyPem());
+    const encoder = new TextEncoder();
+    const data = encoder.encode(stringToSign);
+    const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', privateKey, data);
+    return btoa(String.fromCharCode(...new Uint8Array(signature)));
   }
 
   /**
-   * Verify RSA-SHA256 signature from FlashPay using Node.js crypto
+   * Verify RSA-SHA256 signature from FlashPay using Web Crypto API
    */
-  private verifySignature(
+  private async verifySignature(
     payload: Record<string, unknown>,
     signature: string
-  ): boolean {
+  ): Promise<boolean> {
     const stringToVerify = this.createDataForSignature(payload);
-    const publicKey = this.getPublicKeyPem();
-    const verify = crypto.createVerify('RSA-SHA256');
-    verify.update(stringToVerify);
-    return verify.verify(publicKey, signature, 'base64');
+    const publicKey = await importPublicKey(this.getPublicKeyPem());
+    const encoder = new TextEncoder();
+    const data = encoder.encode(stringToVerify);
+    const sigBytes = Uint8Array.from(atob(signature), c => c.charCodeAt(0));
+    return crypto.subtle.verify('RSASSA-PKCS1-v1_5', publicKey, sigBytes, data);
   }
 
   /**
@@ -193,7 +238,7 @@ export class FlashPayClient {
       payload.data = data;
     }
 
-    const signature = this.generateSignature(payload);
+    const signature = await this.generateSignature(payload);
     payload.sign = signature;
     payload.signType = 'RSA2';
 
@@ -368,7 +413,7 @@ export class FlashPayClient {
 
     // Verify signature
     const payloadToVerify = { appKey, charset, time, version, data };
-    const isValid = this.verifySignature(payloadToVerify, sign);
+    const isValid = await this.verifySignature(payloadToVerify, sign);
 
     if (!isValid) {
       throw new Error('Invalid notification signature');
