@@ -10,4 +10,4 @@ export {
   type PayoutParams,
   type NotificationPayload,
   type NotificationResult,
-} from './client';
+} from './client.js';

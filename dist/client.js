@@ -1,4 +1,8 @@
-import { format as formatDate, addDays } from 'date-fns';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.FlashPayClient = exports.THBankCode = void 0;
+exports.createFlashPayClient = createFlashPayClient;
+const date_fns_1 = require("date-fns");
 /**
  * Convert a PEM-encoded key to an ArrayBuffer
  */
@@ -29,7 +33,7 @@ async function importPublicKey(pem) {
     return crypto.subtle.importKey('spki', keyData, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
 }
 // Bank codes for Thailand
-export var THBankCode;
+var THBankCode;
 (function (THBankCode) {
     THBankCode["BBL"] = "002";
     THBankCode["KTB"] = "006";
@@ -39,8 +43,8 @@ export var THBankCode;
     THBankCode["GSB"] = "030";
     THBankCode["SCB"] = "014";
     THBankCode["KBANK"] = "004";
-})(THBankCode || (THBankCode = {}));
-export class FlashPayClient {
+})(THBankCode || (exports.THBankCode = THBankCode = {}));
+class FlashPayClient {
     constructor(config) {
         this.config = config;
     }
@@ -120,7 +124,7 @@ export class FlashPayClient {
         const payload = {
             appKey: this.config.appKey,
             charset: 'UTF-8',
-            time: formatDate(new Date(), 'yyyy-MM-dd HH:mm:ss'),
+            time: (0, date_fns_1.format)(new Date(), 'yyyy-MM-dd HH:mm:ss'),
             version: '1.0',
         };
         if (data) {
@@ -151,12 +155,12 @@ export class FlashPayClient {
         const data = {
             outUserId: params.outUserId,
             outTradeNo: params.outTradeNo,
-            outTradeTime: formatDate(now, 'yyyy-MM-dd HH:mm:ss'),
+            outTradeTime: (0, date_fns_1.format)(now, 'yyyy-MM-dd HH:mm:ss'),
             paymentAmount: params.paymentAmount,
             cur: params.currencyCode,
             subject: params.subject,
             notifyUrl: this.config.notifyUrl,
-            expireTime: params.expireTime || formatDate(addDays(now, 1), 'yyyy-MM-dd HH:mm:ss'),
+            expireTime: params.expireTime || (0, date_fns_1.format)((0, date_fns_1.addDays)(now, 1), 'yyyy-MM-dd HH:mm:ss'),
         };
         if (params.body) {
             data.body = params.body;
@@ -174,7 +178,7 @@ export class FlashPayClient {
         const now = new Date();
         const data = {
             outTradeNo: params.outTradeNo,
-            outTradeTime: formatDate(now, 'yyyy-MM-dd HH:mm:ss'),
+            outTradeTime: (0, date_fns_1.format)(now, 'yyyy-MM-dd HH:mm:ss'),
             paymentAmount: params.paymentAmount,
             cur: params.currencyCode,
             subject: params.subject,
@@ -195,7 +199,7 @@ export class FlashPayClient {
         const now = new Date();
         const data = {
             outTradeNo: params.outTradeNo,
-            outTradeTime: formatDate(now, 'yyyy-MM-dd HH:mm:ss'),
+            outTradeTime: (0, date_fns_1.format)(now, 'yyyy-MM-dd HH:mm:ss'),
             amount: params.amount,
             cur: params.currencyCode,
             subject: params.subject,
@@ -264,6 +268,7 @@ export class FlashPayClient {
         };
     }
 }
-export function createFlashPayClient(config) {
+exports.FlashPayClient = FlashPayClient;
+function createFlashPayClient(config) {
     return new FlashPayClient(config);
 }
